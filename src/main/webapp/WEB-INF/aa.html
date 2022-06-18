@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title></title>
+  <script src="js/jquery-3.5.0.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="css/base.css" />
+  <script src="js/base.js"></script>
+  <script>
+    var session = window.sessionStorage;
+    // 使用申请记录搜索框
+    var BASE_URL = session.getItem("BASE_URL");
+
+    function usiRecordInfo(){
+      var obj = {};
+      var userid = document.getElementById("userid");
+      if(userid.value==""){
+        messagePop("输入不能为空!");
+        userid.focus();
+        return;
+      }
+      obj.user_id = userid.value;
+      obj.start = 0;
+      obj.size = 10;
+      usiRecord(obj);
+    }
+    // 打开即加载使用详情
+    window.onload=function (){
+      var usertype = session.getItem("usertype");
+      if(usertype==null || usertype=="null"){
+        messagePop("请登录后进行操作");
+        return;
+      }
+      var obj = {};
+      obj.user_id=session.getItem("userid");
+      obj.start = 0;
+      obj.size = 10;
+      usiRecord(obj);
+    }
+    function usiRecord(obj){
+      $.ajax({
+        url: BASE_URL+"/usirecord.do",
+        data: obj,
+        type: "GET",
+        dataType: "json",
+        success: function(data) {
+          getUsingRecord(data);
+        }
+      });
+    }
+    function getUsingRecord(result){
+      var tabview = document.getElementById("tabview");
+      var res ="";
+      if(result.length==0){
+        res +="未找到相应记录！";
+        tabview.innerHTML=res;
+        return;
+      }
+      var headline = ["usi_id","equ_id","equ_name","usi_number","usi_date","usi_returndate","usi_applystatus","adm_feedbackapply","usi_returnstatus","adm_feedbackreturn"];
+      var headinfo = ["序列号","设备编号","设备名称","申请数量","提交时间","归还期限","申请状态","申请提示","归还状态","归还提示","操作"];
+      res +="<table class=\"contab\">";
+      // 表头
+      res +="<tr>";
+      for(var i=0;i<headinfo.length;i++){
+        res +="<th>"+headinfo[i]+"</th>";
+      }
+      res +="</tr>";
+      // 内容
+      var param = "";
+      for(var i=0;i<result.length;i++){
+        var item = result[i];
+        param = JSON.stringify(item).replace(/"/g, '&quot;');
+        // 每一行
+        res +="<tr>";
+        for(var j=0;j<headline.length;j++){
+          if(item[headline[j]]==""){
+            res += "<td>--</td>";
+            continue;
+          }
+          res +="<td>"+item[headline[j]]+"</td>";
+        }
+        if(session.getItem("usertype")==2){
+          res +="<td align=\"center\"><input type=\"button\" class=\"btnbase\" onclick=\"delUsi(\'"+param+"\')\" value=\"删除\">";
+          res +="<input type=\"button\" class=\"btnbase\" onclick=\"replyinfo(\'"+param+"\')\" value=\"回复\">";
+        }else{
+          var disabled="disabled";
+          if(item["usi_applystatus"]=="通过"){
+            disabled = "";
+          }
+          res +="&nbsp;<input type=\"button\" "+disabled+" class=\"btnbase\" onclick=\"faultInfo(\'"+param+"\')\" value=\"问题\">";
+          res +="&nbsp;<input type=\"button\" "+disabled+" class=\"btnbase\" onclick=\"giveBack(\'"+param+"\')\" value=\"归还\">";
+        }
+
+        res += "</td>";
+        res +="</tr>";
+      }
+      res += "</div>";
+      document.getElementById("tabview").innerHTML=res;
+    }
+    function applyTab(param){
+      var firsttab = document.getElementById("firsttab");
+      var secondtab = document.getElementById("secondtab");
+      var ob = document.getElementsByClassName("navlab");
+      ob[param].className = "navlab currlab";
+      if(param==0){
+        ob[param+1].className = "navlab";
+        firsttab.style.display="block";
+        secondtab.style.display = "none";
+      }else{
+        ob[param-1].className = "navlab";
+        firsttab.style.display="none";
+        secondtab.style.display = "block";
+        purchaseRecord();
+      }
+    }
+    function saveInfo(){
+      var heads = ["usi_id","user_id","equ_id","equ_name","usi_reason","usi_number","usi_date","usi_returndate","usi_applystatus","adm_feedbackapply","usi_returnstatus","adm_feedbackreturn"]
+      var infos = document.getElementsByName("infos");
+      var obj = {};
+      for(var i=0;i<heads.length;i++){
+        if(infos[i].value)
+          obj[heads[i]]=infos[i].value;
+      }
+      $.ajax({
+        url: BASE_URL+"/dealusi.do",
+        data: obj,
+        type: "GET",
+        dataType: "json",
+        success: function(data) {
+          if(data==1){
+            messagePop("处理成功");
+          }else{
+            messagePop("处理失败");
+          }
+          cancleInfo();
+        }
+      });
+    }
+    function cancleInfo(){
+      document.getElementsByClassName("replyview")[0].style.display="none";
+    }
+    function cancleInfo2(){
+      document.getElementsByClassName("replyview")[1].style.display="none";
+    }
+    function replyinfo(ss){
+      document.getElementsByClassName("replyview")[0].style.display="block";
+      // var ss="{\"usi_id\":2,\"user_id\":\"3182701101\",\"equ_id\":1,\"adm_id\":\"G0001\",\"usi_reason\":\"学习实验\",\"usi_number\":\"1\",\"usi_date\":\"2020-06-14\",\"usi_returndate\":\"2020-06-28\",\"usi_applystatus\":\"待处理\",\"adm_feedbackapply\":\"\",\"usi_returnstatus\":\"无处理项\",\"adm_feedbackreturn\":\"\",\"user_del\":0,\"adm_del\":0,\"equ_name\":\"多媒体教师主控台\"}";
+      var obj = JSON.parse(ss);
+      var heads = ["usi_id","user_id","equ_id","equ_name","usi_reason","usi_number","usi_date","usi_returndate","usi_applystatus","adm_feedbackapply","usi_returnstatus","adm_feedbackreturn"];
+      // var infos = ["系列号","用户名","设备编号","设备名称","申请说明","申请数量","申请日期","归还日期","申请处理","申请提示","归还处理","归还提示"];
+      var infos = document.getElementsByName("infos");
+      for(var i=0;i<infos.length;i++){
+        infos[i].value=obj[heads[i]];
+        if(infos[i].value=="无处理项"){
+          infos[i].disabled="false";
+        }
+      }
+    }
+    function purchaseRecord(){
+      var ids = document.getElementById("userid2");
+      var usertype = session.getItem("usertype");
+      var urls = BASE_URL;
+      var obj = {};
+      var userid = ids.value;
+      if(userid!=""){
+        userid =session.getItem("userid");
+        obj.userid = userid;
+        if(usertype==2){
+          urls +="/admpurrecord.do";
+        }else{
+          urls += "/userpurrecord.do";
+        }
+      }else{
+        messagePop("输入不能为空!");
+        userid.focus();
+        return;
+      }
+
+      $.ajax({
+        url: urls,
+        data: obj,
+        type: "GET",
+        dataType: "json",
+        success: function(data) {
+          purchaseInfo(data);
+        }
+      });
+    }
+    function purchaseInfo(obj){
+      if(obj.length==0){
+        messagePop("没有相关记录");
+        return;
+      }
+      var usertype = window.sessionStorage.getItem("usertype");
+      var heads = ["pur_id","user_id" ,"equ_name","pur_applyreason","pur_purchasenumber","pur_price","pur_applydate","adm_dealstatus","adm_reply"];
+      var infos = ["序列号","用户ID","设备名","申请说明","购买数量","预计单价","申请日期","申请进度","通知信息","操作"];
+      obj.a = infos;
+      var res = "<table style=\"margin-top: 10px;	width: 96%;\" class=\"contab\">";
+      res += "<tr>";
+      for(var k=0;k<infos.length;k++){
+        res += "<th>"+infos[k]+"</th>";
+      }
+      res += "</tr>";
+      var param = "";
+      for(var i=0;i<obj.length;i++){
+        var item = obj[i];
+        param = JSON.stringify(item).replace(/"/g, '&quot;');
+        res += "<tr>";
+        for(var j=0;j<heads.length;j++){
+          res += "<td>";
+          res += item[heads[j]];
+          res += "</td>";
+        }
+        res += "<td align=\"center\">";
+        res +="<input type=\"button\" class=\"btnbase\" onclick=\"delPurchase(\'"+param+"\')\" value=\"删除\">";
+        if(usertype==2){
+          res +="<input type=\"button\" class=\"btnbase\" onclick=\"delPurchase(\'"+param+"\')\" value=\"删除\">";
+          res += "<input type=\"button\" class=\"btnbase\" onclick=\"dealPurchase(\'"+param+"\')\" value=\"回复\">";
+        }
+        res +="</td>";
+        res += "</tr>";
+      }
+      res +="</table>";
+      document.getElementById("purtab").innerHTML = res;
+    }
+    // 删除购买申请✅
+    function delPurchase(data){
+      var r = confirm("确定删除吗？");
+      if (r == false) {
+        return messagePop("删除失败");;
+      }
+    }
+    function delUsi(data){
+      var usertype = session.getItem("usertype");
+      if(usertype==null){
+        messagePop("请登录再进行操作");
+        return;
+      }
+      var r = confirm("确定删除吗？");
+      if (r == false) {
+        return;
+      }
+      var p = JSON.parse(data);
+      var obj = {};
+      obj.user_type = usertype;
+      obj.usi_id = p.usi_id;
+      $.ajax({
+        url: BASE_URL+"/delusingrecord.do",
+        data: obj,
+        type: "GET",
+        dataType: "json",
+        success: function(data) {
+          if(data==1){
+            messagePop("删除成功");
+          }else{
+            messagePop("删除失败");
+          }
+          cancleInfo2();
+        }
+      });
+    }
+    function dealPurchase(data){
+      var obj = JSON.parse(data);
+      document.getElementsByClassName("replyview")[1].style.display="block";
+      var heads = ["user_id" ,"equ_name","pur_applyreason","pur_purchasenumber","pur_price","pur_applydate","adm_dealstatus","adm_reply","pur_id"];
+      var elem = document.getElementsByName("purchase");
+      for(var i=0;i<elem.length;i++){
+        elem[i].value = obj[heads[i]];
+      }
+    }
+    function savePurchase(){
+      document.getElementsByClassName("replyview")[1].style.display="block";
+      var heads = ["user_id" ,"equ_name","pur_applyreason","pur_purchasenumber","pur_price","pur_applydate","adm_dealstatus","adm_reply","pur_id"];
+      var obj = {};
+      var elem = document.getElementsByName("purchase");
+      for(var i=0;i<elem.length;i++){
+        obj[heads[i]] = elem[i].value;
+        if(heads[i]=="adm_dealstatus" && elem[i].value==""){
+          elem[i].focus();
+          messagePop("输入不能为空");
+          return;
+        }
+      }
+      $.ajax({
+        url: BASE_URL+"/savepurchase.do",
+        data: obj,
+        type: "GET",
+        dataType: "json",
+        success: function(data) {
+          if(data==1){
+            messagePop("保存成功");
+          }else{
+            messagePop("处理失败");
+          }
+          cancleInfo2();
+
+        }
+      });
+    }
+    var img="";
+    function selectImg(source) {
+      var file = source.files[0];
+      if(window.FileReader) {
+        var fr = new FileReader();
+        fr.onloadend = function(e) {
+          document.getElementById("imgview").src = e.target.result;
+          img = e.target.result;
+        };
+        fr.readAsDataURL(file);
+      }
+    }
+    function faultInfo(param){
+      var faultview = document.getElementsByClassName("faultview");
+      faultview[0].style.display="block";
+      var param = JSON.parse(param);
+      // param = {"usi_id":4,"user_id":"3182701101","equ_id":2,"adm_id":"G0001","usi_reason":"","usi_number":"3","usi_date":"2020-06-12","usi_returndate":"2020-06-13","usi_applystatus":"通过","adm_feedbackapply":"","usi_returnstatus":"无处理项","adm_feedbackreturn":"","user_del":0,"adm_del":0,"equ_name":"学生实验桌"};
+      var ob = document.getElementsByName("equfault");
+      ob[0].value= param.equ_id;
+      ob[1].value= param.user_id;
+    }
+    function giveBack(param){
+      var param = JSON.parse(param);
+      var req = new XMLHttpRequest();
+      var url = BASE_URL+"/giveback.do?usi_id="+param.usi_id;
+      req.open("GET",url,true);
+      req.onload=function(){
+        var res = "请求提交成功！";
+        if(req.response!="1"){
+          res = "提交处理失败！";
+        }
+        messagePop(res);
+      }
+      req.onerror=function(){
+        messagePop("处理时发生错误");
+      }
+      req.withCredentials = true;
+      req.send();
+    }
+    function faultSend(num){
+      if(num==2){
+        var faultview = document.getElementsByClassName("faultview");
+        faultview[0].style.display="none";
+        return;
+      }
+      var ob = document.getElementsByName("equfault");
+      var param = {};
+      var info = ["equ_id","user_id","fau_detail","fau_occurdate","fau_occurposition"];
+      for(var i=0;i<ob.length;i++){
+        param[info[i]] = ob[i].value;
+        if(ob[i].value==""){
+          messagePop("信息不能为空");
+          return ob[i].focus();
+        }
+      }
+      param["fau_img"] = img;
+      $.ajax({
+        url: BASE_URL+"/faultup.do",//跳转图片上传
+        data:param,
+        type: "POST",
+        dataType: "json",
+        xhrFields: {
+          withCredentials: true
+        },
+        crossDomain: true,
+        success: function(data) {
+
+          var faultview = document.getElementsByClassName("faultview");
+          faultview[0].style.display="none";
+          if(data==1){
+            messagePop("提交成功");
+          }else{
+            messagePop("提交失败");
+          }
+        },
+        error:function(msg){
+          document.write(JSON.stringify(msg));
+        },
+      });
+    }
+  </script>
+</head>
+<body>
+<div id="container">
+  <div id="navbar">
+    <ul>
+      <li><input type="button" class="navlab" value="使用详情" onclick="applyTab(0)"></li>
+      <li><input type="button" class="navlab" value="购买详情" onclick="applyTab(1)"></li>
+    </ul>
+  </div>
+  <div id="firsttab">
+    <div class="searchbar" style="margin-top: 10px;">
+      <input type="text" placeholder="用户名" id="userid">
+      <input type="button" class="btnbase" onclick="usiRecordInfo()" value="查找">
+    </div>
+    <div id="tabview">
+    </div>
+    <div class="replyview">
+      <label style="margin-left: 18px;">使用申请处理</label>
+      <hr>
+      <table>
+        <tr>
+          <td>系列号</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+          <td>用户名</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+        </tr>
+        <tr>
+          <td>设备编号</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+          <td>设备名称</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+        </tr>
+        <tr>
+          <td>申请说明</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+          <td>申请数量</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+        </tr>
+        <tr>
+          <td>申请日期</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+          <td>归还日期</td>
+          <td><input type="text" disabled="disabled" name="infos"></td>
+        </tr>
+        <tr>
+          <td>申请处理</td>
+          <td>
+            <select name="infos">
+              <option value="通过">通过</option>
+              <option value="未通过" slected>不通过</option>
+            </select>
+          </td>
+          <td>申请提示</td>
+          <td><textarea placeholder="选填" rows="3" cols="22" name="infos" style="resize:none"></textarea></td>
+        </tr>
+        <tr>
+          <td>归还处理</td>
+          <td>
+            <select name="infos">
+              <option value="通过">通过</option>
+              <option value="未通过">不通过</option>
+              <option value="无处理项" selected>无处理项</option>
+            </select>
+          </td>
+          <td>归还提示</td>
+          <td><textarea placeholder="选填" rows="3" cols="22" name="infos" style="resize:none"></textarea></td>
+        </tr>
+        <tr>
+          <td colspan="2" align="center">
+            <input type="button" class="btnbase" onclick="saveInfo()" value="保存">
+          </td>
+          <td align="center" colspan="2">
+            <input type="button" class="btnbase" onclick="cancleInfo()" value="取消">
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  <div id="secondtab" style="display: none;">
+    <div class="searchbar" style="margin-top: 10px;"><input type="text" placeholder="用户名" id="userid2"><input type="button" class="btnbase" onclick="purchaseRecord()" value="查找"></div>
+    <div id="purtab">
+    </div>
+    <div class="replyview">
+      <label style="margin-left: 18px;">购买申请处理</label>
+      <hr>
+      <table>
+        <tr>
+          <td>申请人ID：</td>
+          <td><input type="text" disabled="disabled" name="purchase"></td>
+          <td>设备名：</td>
+          <td><input type="text" disabled="disabled" name="purchase"></td>
+        </tr>
+        <tr>
+          <td colspan="4">申请说明：</td>
+        </tr>
+        <tr>
+          <td colspan="4">
+            <textarea name="purchase" style="resize:none; width: 92%;" disabled="disabled" cols="60" rows="4"></textarea>
+          </td>
+        </tr>
+        <tr>
+          <td>购买数量：</td>
+          <td><input type="text" disabled="disabled" name="purchase"></td>
+          <td>预计单价：</td>
+          <td><input type="text" disabled="disabled" name="purchase"></td>
+        </tr>
+        <tr>
+          <td>申请日期：</td>
+          <td><input type="text" disabled="disabled" name="purchase"></td>
+          <td>处理结果：</td>
+          <td>
+            <select name="purchase" >
+              <option value="通过">通过</option>
+              <option value="未通过" slected>不通过</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="4">回复消息：</td>
+        </tr>
+        <tr>
+          <td colspan="4">
+            <textarea name="purchase" style="resize:none; width: 92%;" rows="4"></textarea>
+          </td>
+        </tr>
+        <tr style="display: none;">
+          <td colspan="4"><input type="text" name="purchase"></td>
+        </tr>
+        <tr>
+          <td colspan="2" align="center">
+            <input type="button" class="btnbase" onclick="savePurchase()" value="保存">
+          </td>
+          <td colspan="2" align="center">
+            <input type="button" class="btnbase" onclick="cancleInfo2()" value="取消">
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  <div class="faultview">
+    <div style="height:32px;line-height:32px;padding-left: 3px; font-weight: bolder;color:white;background-color: #0193DE;">设备故障反映</div>
+    <table style="padding:8px;width:80%;height:564px;background-color: #BBDDF8;">
+      <tr><td>设备编号</td><td><input type="text" disabled name="equfault"></td></tr>
+      <tr style="display:none"><td>用户名</td><td><input type="text" name="equfault"></td></tr>
+      <tr><td colspan="2">请描述关于该设备在使用过程中发现的异常问题？</td></tr>
+      <tr><td colspan="2"><textarea name="equfault" cols="65" rows="4"></textarea></td></tr>
+      <tr><td>异常发生时间</td><td><input type="date" name="equfault"></td></tr>
+      <tr><td>异常发生地点</td><td><input type="text" name="equfault"></td></tr>
+      <tr><td>上传图片</td><td><input type="file" name="file" class="basebtn" onchange="selectImg(this)" /></td></tr>
+      <tr><td colspan="2"><img id="imgview" src="" alt="无图片" width="480" height="320"></td></tr>
+      <tr>
+        <td align="center"><input type="button" class="btnbase" onclick="faultSend(1)" value="提交"/></td>
+        <td><input type="button" class="btnbase" onclick="faultSend(2)" value="取消"/></td>
+      </tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>
